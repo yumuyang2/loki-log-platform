@@ -1,0 +1,24 @@
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://<node3_ip>:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+    - targets: [localhost]
+      labels:
+        job: varlogs
+        instance: "node1"
+        __path__: /var/log/*.log
+  - job_name: containers
+    static_configs:
+    - targets: [localhost]
+      labels:
+        job: containerlogs
+        instance: "node1"
+        __path__: /var/lib/docker/containers/*/*.log

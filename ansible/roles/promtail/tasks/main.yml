@@ -1,0 +1,67 @@
+---
+- name: 确保 Docker 已安装
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: 启动 Docker 并设置开机自启
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: 安装 Docker Python 模块（供 Ansible 使用）
+  pip:
+    name: docker
+    state: present
+
+- name: 创建必要的数据目录
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ loki_data_dir }}"
+    - "{{ promtail_data_dir }}"
+    - "{{ promtail_data_dir }}/var"
+    - "{{ log_nginx_dir }}"
+
+- name: 分发 Loki 配置文件（仅 Loki 服务器）
+  template:
+    src: loki-config.yml.j2
+    dest: "{{ loki_data_dir }}/loki-config.yml"
+  when: inventory_hostname in groups['loki_server']
+  notify: restart loki
+
+- name: 启动 Loki 容器
+  docker_container:
+    name: loki
+    image: grafana/loki:2.9.10
+    restart_policy: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - "{{ loki_data_dir }}/loki-config.yml:/etc/loki/loki-config.yml:ro"
+      - "{{ loki_data_dir }}:/loki"
+    command: "-config.file=/etc/loki/loki-config.yml"
+  when: inventory_hostname in groups['loki_server']
+
+- name: 分发 Promtail 配置文件
+  template:
+    src: promtail-config.yaml.j2
+    dest: "{{ promtail_data_dir }}/promtail-config.yaml"
+
+- name: 启动 Promtail 容器（使用挂载目录方式）
+  docker_container:
+    name: promtail
+    image: grafana/promtail:2.9.10
+    restart_policy: always
+    volumes:
+      - "{{ promtail_data_dir }}/promtail-config.yaml:/etc/promtail/promtail-config.yml:ro"
+      - "{{ promtail_data_dir }}/var:/var/lib/promtail"
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - "{{ log_nginx_dir }}:{{ log_nginx_dir }}:ro"
+    command: "-config.file=/etc/promtail/promtail-config.yml"

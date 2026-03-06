@@ -1,0 +1,16 @@
+---
+- name: 部署 Loki 日志平台
+  hosts: all
+  gather_facts: yes
+  roles:
+    - promtail
+
+- name: 等待 Loki 服务就绪（可选）
+  hosts: loki_server
+  tasks:
+    - name: 等待 Loki 端口可访问
+      wait_for:
+        port: 3100
+        host: "{{ ansible_default_ipv4.address }}"
+        delay: 5
+        timeout: 60

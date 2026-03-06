@@ -1,0 +1,39 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://{{ hostvars['node3']['ansible_default_ipv4']['address'] }}:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+    - targets: [localhost]
+      labels:
+        job: varlogs
+        instance: "{{ ansible_hostname }}"
+        __path__: /var/log/*.log
+  - job_name: containers
+    static_configs:
+    - targets: [localhost]
+      labels:
+        job: containerlogs
+        instance: "{{ ansible_hostname }}"
+        __path__: /var/lib/docker/containers/*/*.log
+  - job_name: nginx_access
+    static_configs:
+    - targets: [localhost]
+      labels:
+        job: nginx_access
+        instance: "{{ ansible_hostname }}"
+        __path__: /data/logs/nginx/access.log
+  - job_name: nginx_error
+    static_configs:
+    - targets: [localhost]
+      labels:
+        job: nginx_error
+        instance: "{{ ansible_hostname }}"
+        __path__: /data/logs/nginx/error.log
